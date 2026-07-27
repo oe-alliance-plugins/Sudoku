@@ -3,7 +3,7 @@ import setup_translate
 
 pkg = 'Extensions.Sudoku'
 setup(name='enigma2-plugin-extensions-sudoku',
-       version='3.0',
+       version='7.1.2',
        description='Sudoku Game FHD modded by Lululla',
        package_dir={pkg: 'Sudoku'},
        packages=[pkg],

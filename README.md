@@ -2,7 +2,7 @@
 
 # <p align="center">Sudoku Plugin for Enigma2 (E²) ![GitHub repo size](https://img.shields.io/github/repo-size/oe-alliance-plugins/Sudoku.svg)</p>
 
-**Sudoku Game FHD modded by Lululla**
+**Sudoku Game FHD/WQHD modded by Lululla**
 
 
 ## Github status

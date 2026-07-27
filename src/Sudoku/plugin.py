@@ -1,4 +1,5 @@
-# -*- coding: ISO-8859-1 -*-
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
 # ===============================================================================
 # Sudoku Plugin by DarkVolli 2009
 # class board by Robert Wohleb
@@ -8,6 +9,7 @@
 # Software Foundation; either version 2, or (at your option) any later
 # version.
 # modded by Lululla to 20220713 - skin by MMark
+# Update by Lululla 20260727
 # ===============================================================================
 from Components.ActionMap import ActionMap
 from Components.Button import Button
@@ -19,10 +21,12 @@ from Screens.Screen import Screen
 from Tools.Directories import fileExists, resolveFilename, SCOPE_CURRENT_SKIN, SCOPE_CURRENT_PLUGIN
 from enigma import eTimer, gFont, getDesktop, RT_HALIGN_CENTER, RT_VALIGN_CENTER
 from random import seed, randint
+from six.moves import range
+
+from . import _, __version__
 from xml.etree.cElementTree import parse
-VERSION = "7.1r0"
+
 SAVEFILE = resolveFilename(SCOPE_CURRENT_PLUGIN, "Extensions/Sudoku/Sudoku.sav")
-helper = 'The playing strength can be changed with the "<" and ">"\nkeys, pressing the "0" the current field is deleted.\nUse CH + / CH- to change level. When you quit the game,\nthe game state is saved in the plugin directory and reloaded\nautomatically on next start ...good fun!\nDark Volli - by Robert Wohleb\nModded by Lululla - Skin by MMark at 20220714'
 
 
 def getDesktopSize():
@@ -32,7 +36,12 @@ def getDesktopSize():
 
 def isFHD():
 	desktopSize = getDesktopSize()
-	return desktopSize[0] == 1920
+	return desktopSize[0] >= 1920
+
+
+def isWQHD():
+	desktopSize = getDesktopSize()
+	return desktopSize[0] >= 2560
 
 
 def main(session, **kwargs):
@@ -182,11 +191,11 @@ class SudokuCell:
 		self.bg_color = col
 
 	def paint(self):
-		fg = RGB(255, 255, 255)  # foreground
+		fg = RGB(255, 255, 255)	 # foreground
 		black = RGB(0, 0, 0)  # background readonly
-		focus = RGB(150, 73, 7)  # background focus
-		grey = RGB(70, 70, 70)  # background not readonly
-		green = RGB(0, 255, 0)  # background solved
+		focus = RGB(150, 73, 7)	 # background focus
+		grey = RGB(70, 70, 70)	# background not readonly
+		green = RGB(0, 255, 0)	# background solved
 		red = RGB(255, 0, 0)  # background error
 
 		b = 2
@@ -207,9 +216,13 @@ class SudokuCell:
 		self.canvas.fill(self.x + b, self.y + b, self.w - 2 * b, self.h - 2 * b, bg)
 
 		if self.value_ > 0:
-			self.canvas.writeText(self.x, self.y, self.w, self.h, fg, bg, gFont("Regular", 24), str(self.value_), RT_HALIGN_CENTER | RT_VALIGN_CENTER)
-			if isFHD():
-				self.canvas.writeText(self.x, self.y, self.w, self.h, fg, bg, gFont("Regular", 32), str(self.value_), RT_HALIGN_CENTER | RT_VALIGN_CENTER)
+			if isWQHD():
+				fontsize = 42
+			elif isFHD():
+				fontsize = 32
+			else:
+				fontsize = 24
+			self.canvas.writeText(self.x, self.y, self.w, self.h, fg, bg, gFont("Regular", fontsize), str(self.value_), RT_HALIGN_CENTER | RT_VALIGN_CENTER)
 
 		self.canvas.flush()
 
@@ -217,48 +230,60 @@ class SudokuCell:
 # mainwindow...
 class Sudoku(Screen):
 	def __init__(self, session):
-		# set skin...
-		if isFHD():
+		if isWQHD():
 			Sudoku.skin = """
-					<screen name="Sudoku" position="60,140" size="1800,900" title="Sudoku" backgroundColor="#101010">
-						<ePixmap position="0,0" size="1800,900" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/Sudoku/pic/sudoku.jpg" />
+					<screen name="Sudoku" position="center,center" size="2560,1440" title="Sudoku" backgroundColor="#101010">
+						<ePixmap position="0,0" size="2560,1440" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/Sudoku/pic/sudoku.jpg" scale="1" />
+						<widget name="gamelevel" position="193,137" size="441,93" valign="center" halign="center" font="Regular;53" foregroundColor="yellow" backgroundColor="#000000" transparent="1" zPosition="1" />
+						<widget source="Canvas" render="Canvas" position="1466,152" size="928,881" backgroundColor="#60ffffff" transparent="1" alphatest="blend" zPosition="2" />
+						<ePixmap position="67,373" pixmap="skin_default/buttons/key_green.png" size="107,53" alphatest="blend" zPosition="2" />
+						<widget name="key_green" font="Regular;45" position="176,373" size="600,53" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<ePixmap position="67,445" pixmap="skin_default/buttons/key_red.png" size="107,53" alphatest="blend" zPosition="2" />
+						<widget name="key_red" font="Regular;45" position="176,445" size="600,53" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<ePixmap position="67,517" pixmap="skin_default/buttons/key_blue.png" size="107,53" alphatest="blend" zPosition="2" />
+						<widget name="key_blue" font="Regular;45" position="176,517" size="600,53" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<eLabel position="67,637" size="600,4" backgroundColor="#202020" zPosition="1" />
+						<ePixmap position="83,128" size="107,107" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/Sudoku/pic/rocket.png" alphatest="blend" zPosition="3" />
+						<widget name="result" render="Label" position="91,812" size="1248,430" font="Regular; 43" halign="left" foregroundColor="#ffff00" backgroundColor="#000000" transparent="1" zPosition="3" />
+						<widget name="movex" render="Label" position="177,297" size="305,67" font="Regular; 45" halign="left" foregroundColor="yellow" backgroundColor="#000000" transparent="1" zPosition="3" />
+					</screen>"""
+		# --- Skin per FHD ---
+		elif isFHD():
+			Sudoku.skin = """
+					<screen name="Sudoku" position="center,center" size="1800,900" title="Sudoku" backgroundColor="#101010">
+						<ePixmap position="0,0" size="1800,900" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/Sudoku/pic/sudoku.jpg" scale="1" />
 						<widget name="gamelevel" position="145,80" size="331,70" valign="center" halign="center" font="Regular;40" foregroundColor="yellow" backgroundColor="#000000" transparent="1" zPosition="1" />
 						<widget source="Canvas" render="Canvas" position="1025,99" size="696,661" backgroundColor="#60ffffff" transparent="1" alphatest="blend" zPosition="2" />
-						<ePixmap position="50,250" pixmap="buttons/key_green.png" size="80,40" alphatest="blend" zPosition="2" />
-						<widget name="key_green" font="Regular;30" position="132,250" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
-						<ePixmap position="50,300" pixmap="buttons/key_red.png" size="80,40" alphatest="blend" zPosition="2" />
-						<widget name="key_red" font="Regular;30" position="132,300" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
-						<ePixmap position="50,350" pixmap="buttons/key_blue.png" size="80,40" alphatest="blend" zPosition="2" />
-						<widget name="key_blue" font="Regular;30" position="132,350" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<ePixmap position="50,250" pixmap="skin_default/buttons/key_green.png" size="80,40" alphatest="blend" zPosition="2" />
+						<widget name="key_green" font="Regular;34" position="132,249" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<ePixmap position="50,300" pixmap="skin_default/buttons/key_red.png" size="80,40" alphatest="blend" zPosition="2" />
+						<widget name="key_red" font="Regular;34" position="132,300" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<ePixmap position="50,350" pixmap="skin_default/buttons/key_blue.png" size="80,40" alphatest="blend" zPosition="2" />
+						<widget name="key_blue" font="Regular;34" position="132,350" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
 						<eLabel position="50,410" size="450,3" backgroundColor="#202020" zPosition="1" />
 						<ePixmap position="62,77" size="80,80" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/Sudoku/pic/rocket.png" alphatest="blend" zPosition="3" />
 						<widget name="result" render="Label" position="80,499" size="835,276" font="Regular; 32" halign="left" foregroundColor="#ffff00" backgroundColor="#000000" transparent="1" zPosition="3" />
 						<widget name="movex" render="Label" position="133,193" size="229,50" font="Regular; 34" halign="left" foregroundColor="yellow" backgroundColor="#000000" transparent="1" zPosition="3" />
 					</screen>"""
-			# % (x, y)
-
 		else:
 			Sudoku.skin = """
-						<screen name="Sudoku" position="0,0" size="1260,720" title="Sudoku" backgroundColor="#101010">
-						<ePixmap position="0,0" size="1259,720" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/Sudoku/pic/sudokuHD.jpg" />
-						<widget name="gamelevel" position="58,104" size="250,50" valign="center" halign="center" font="Regular; 34" foregroundColor="yellow" backgroundColor="#000000" transparent="1" zPosition="1" />
+					<screen name="Sudoku" position="center,center" size="1280,720" title="Sudoku" backgroundColor="#101010">
+						<ePixmap position="0,0" size="1259,720" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/Sudoku/pic/sudokuHD.jpg" scale="1" />
+						<widget name="gamelevel" position="38,104" size="270,50" valign="center" halign="center" font="Regular; 34" foregroundColor="yellow" backgroundColor="#000000" transparent="1" zPosition="1" />
 						<widget source="Canvas" render="Canvas" position="534,28" size="696,661" backgroundColor="#60ffffff" transparent="1" alphatest="blend" zPosition="2" />
-						<widget name="key_green" font="Regular;30" position="135,165" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
-						<widget name="key_red" font="Regular;30" position="135,216" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
-						<widget name="key_blue" font="Regular;30" position="133,265" size="450,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<widget name="key_green" font="Regular;30" position="120,165" size="400,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<widget name="key_red" font="Regular;30" position="120,211" size="400,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
+						<widget name="key_blue" font="Regular;30" position="118,260" size="400,40" halign="left" valign="center" backgroundColor="black" zPosition="1" transparent="1" />
 						<eLabel position="50,315" size="300,3" backgroundColor="#202020" zPosition="1" />
 						<ePixmap position="50,7" size="80,80" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/Sudoku/pic/rocket.png" alphatest="blend" zPosition="3" />
 						<widget name="result" render="Label" position="12,316" size="510,370" font="Regular; 22" halign="left" foregroundColor="#ffff00" backgroundColor="#000000" transparent="1" zPosition="4" valign="top" />
-						<widget name="movex" render="Label" position="324,103" size="186,50" font="Regular; 34" halign="right" foregroundColor="yellow" backgroundColor="dark" transparent="1" zPosition="3" />
+						<widget name="movex" render="Label" position="319,103" size="195,50" font="Regular; 34" halign="right" foregroundColor="yellow" backgroundColor="dark" transparent="1" zPosition="3" />
 						<eLabel name="" position="13,316" size="510,370" zPosition="2" />
 						<eLabel name="" position="134,164" size="385,138" />
-						<eLabel name="" position="57,211" size="70,40" backgroundColor="red" zPosition="3" />
-						<eLabel name="" position="56,261" size="70,40" backgroundColor="blue" zPosition="3" />
-						<eLabel name="" position="57,164" size="70,40" zPosition="3" backgroundColor="green" />
-						</screen>
-						"""
-			# % (x, y)
-
+						<eLabel name="" position="37,211" size="70,40" backgroundColor="red" zPosition="3" />
+						<eLabel name="" position="36,261" size="70,40" backgroundColor="blue" zPosition="3" />
+						<eLabel name="" position="37,164" size="70,40" zPosition="3" backgroundColor="green" />
+					</screen>"""
 		# i'm not really sure if this is the right way to get the background color from a skinned window?
 		# there must exist a better way? everything is taken from skin.py
 		# find xml for actual skin...
@@ -274,7 +299,7 @@ class Sudoku(Screen):
 				color = get_attr("value")
 				if name and color:
 					colorNames[name] = color
-					#print("Color:", name, color)
+					# print("Color:", name, color)
 
 		# find colors for skinned window...
 		for windowstyle in actualSkin.findall("windowstyle"):
@@ -288,7 +313,7 @@ class Sudoku(Screen):
 					if color[0] != '#':
 						# is "named" color, have to look in dictionary...
 						color = colorNames[color]
-					#print(type, color)
+					# print(type, color)
 					# at least get the background color...
 					if type == "Background":
 						bgcolor = int(color[1:], 0x10)
@@ -297,20 +322,20 @@ class Sudoku(Screen):
 
 		self.skin = Sudoku.skin
 		Screen.__init__(self, session)
-		self.setTitle("Sudoku %s" % VERSION)
+		self.setTitle("Sudoku %s" % __version__)
 		self["Canvas"] = CanvasSource()
-		self["gamelevel"] = Label(_(" <    easy    >"))
-		self["key_green"] = Button(_("new game"))
-		self["key_yellow"] = Button(_("check game"))
-		self["key_blue"] = Button(_("restart game"))
-		self["key_red"] = Button(_("solve game"))
-		self["result"] = Label(_(helper))
+		self["gamelevel"] = Label(_(" <	   easy	   >"))
+		self["key_green"] = Button(_("New Game"))
+		self["key_yellow"] = Button(_("Check Game"))
+		self["key_blue"] = Button(_("Restart Game"))
+		self["key_red"] = Button(_("Solve Game"))
+		self["result"] = Label()
 		self["movex"] = Label(_(""))
 
 		self.cnt = 0
 		self.timer = eTimer()
 		self.timer.callback.append(self.timerHandler)
-
+		self.timer.start(150, 1)
 		self.xFocus = 4
 		self.yFocus = 4
 
@@ -341,7 +366,6 @@ class Sudoku(Screen):
 			"deleteBackward": self.previous_pressed,
 		})
 		# fill canvas with background color...
-
 		# self["Canvas"].fill(0, 0, 354, 354, bgcolor)
 		# if isFHD():
 		self["Canvas"].fill(0, 0, 500, 500, bgcolor)
@@ -349,17 +373,18 @@ class Sudoku(Screen):
 
 		self.board_cells = []
 		self.board_values = []
-		# ToDo: change for HD Skins...
-
-		# edit lululla original
-		# GROUP_SIZE = 108
-		# CELL_SIZE = 35
-		# CELL_OFFSET = 4
-
-		# if isFHD():
-		GROUP_SIZE = 208
-		CELL_SIZE = 70
-		CELL_OFFSET = 4
+		if isWQHD():
+			GROUP_SIZE = 277
+			CELL_SIZE = 93
+			CELL_OFFSET = 5
+		elif isFHD():
+			GROUP_SIZE = 208
+			CELL_SIZE = 70
+			CELL_OFFSET = 4
+		else:
+			GROUP_SIZE = 108
+			CELL_SIZE = 35
+			CELL_OFFSET = 4
 
 		for j in range(9):
 			tmp = []
@@ -481,11 +506,11 @@ class Sudoku(Screen):
 
 	def setGamelLevelLabel(self):
 		if self.gameLevel == 0:
-			self["gamelevel"].setText("<     easy     >")
+			self["gamelevel"].setText("<	 easy	  >")
 		elif self.gameLevel == 1:
-			self["gamelevel"].setText("<   medium   >")
+			self["gamelevel"].setText("<   medium	>")
 		elif self.gameLevel == 2:
-			self["gamelevel"].setText("<     hard     >")
+			self["gamelevel"].setText("<	 hard	  >")
 		elif self.gameLevel == 3:
 			self["gamelevel"].setText("< impossible >")
 
@@ -568,7 +593,7 @@ class Sudoku(Screen):
 		del b.boardlist[:]
 		del b.partialboardlist[:]
 		n = 11 * (5 - self.gameLevel)
-		#n = 80
+		# n = 80
 		b.generate(n)
 		self.board_values = b.boardlist
 		for j in range(0, 9):
@@ -641,8 +666,6 @@ class Sudoku(Screen):
 			inplist = inp.split()
 			self.gameLevel = int(float(inplist[0]))
 			self.cnt = int(float(inplist[1]))
-			# self.gameLevel = int(inplist[0])
-			# self.cnt = int(inplist[1])
 			for j in range(0, 9):
 				for i in range(0, 9):
 					inp = sav.readline()
@@ -668,3 +691,13 @@ class Sudoku(Screen):
 			self.check_game(False)
 			self.setGamelLevelLabel()
 		self.timer.start(1000)
+		helper = "\n".join([
+			_("The playing strength can be changed with '<' and '>' keys."),
+			_("Press '0' deletes current field."),
+			_("Use CH+ / CH- to change level."),
+			_("Game is saved automatically on exit."),
+			_("Dark Volli - Robert Wohleb"),
+			_("Update by Lululla - MMark 20220714"),
+			_("Update by Lululla 20260727")
+		])
+		self["result"].setText(helper)
